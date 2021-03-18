@@ -3,16 +3,18 @@
 import argparse
 import configparser
 import os
+from shutil import which
 
 
-def get_arguments():
+def get_settings():
     # returns a dict of configuration settings
     # from commandline arguments
 
     # parse commandline arguments
-    parser = argparse.ArgumentParser(description='Generates gensystray.cfg',
-                                     prog='gensystray-gen',
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    parser = argparse.ArgumentParser(
+        description='Generates gensystray.cfg',
+        prog='gensystray-gen',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
                                      )
     parser.add_argument('NAME',
                         type=str,
@@ -57,11 +59,11 @@ def get_arguments():
     return argsdict
 
 
-def get_files(arguments):
+def get_files(settings):
     # Returns a dict with names and paths for files with given extension
 
-    directory = arguments['directory']
-    extension = arguments['file_extension']
+    directory = settings['directory']
+    extension = settings['file_extension']
 
     # Create an empty dict
     item_pairs = {}
@@ -87,14 +89,14 @@ def get_files(arguments):
     return item_pairs
 
 
-def write_config(filedict, arguments):
-    # receives dict and write to file
+def write_gensystray(settings, filedict):
+    # receives dict and write to gensystray config file
 
-    config_name = arguments['NAME']
-    directory = arguments['directory']
-    extension = arguments['file_extension']
-    open_command = arguments['open_command']
-    gensystray_root = arguments['gensystray_root']
+    config_name = settings['NAME']
+    directory = settings['directory']
+    extension = settings['file_extension']
+    open_command = settings['open_command']
+    gensystray_root = settings['gensystray_root']
 
     # check if dir exists, create it if needed
     outputdir = os.path.join(gensystray_root, config_name)
@@ -136,22 +138,23 @@ def write_config(filedict, arguments):
         f.write('[%s]\n%s\n\n' % ('-', '-'))
         f.write('[%s]\n%s\n\n' % ('New File', newfile_command))
         f.write('[%s]\n%s\n\n' % ('-', '-'))
+    print('wrote %s' % outputfile)
 
 
-def write_systemd(arguments):
+def write_systemd(settings, exec_path):
     # Make systemd .path and .service files
 
-    config_name = arguments['NAME']
-    directory = arguments['directory']
-    extension = arguments['file_extension']
-    open_command = arguments['open_command']
+    config_name = settings['NAME']
+    directory = settings['directory']
+    extension = settings['file_extension']
+    open_command = settings['open_command']
     servicename = 'gensystray-refresh@'
     pathfile_name = servicename + config_name + '.path'
     unitfile_name = servicename + config_name + '.service'
     unitfile_string = '%s%si.service' % (servicename, '%')
     execstart_string = (
-                        '%sh/build/gensystray/gensystray-gen.py %s %s %s %s %s %s %s %s' %
-                        ('%', config_name, '-n', '-c', open_command,
+                        '%s %s %s %s %s %s %s %s %s' %
+                        (exec_path, config_name, '-n', '-c', open_command,
                          '-d', directory, '-e', extension)
                          )
     outputdir = os.path.expanduser('~/.config/systemd/user/')
@@ -168,7 +171,8 @@ def write_systemd(arguments):
 
     unitfile = configparser.ConfigParser(interpolation=None)
     unitfile.optionxform = str
-    unitfile['Unit'] = {'Description': 'Refreshes gensystray config after file changes'}
+    unitfile['Unit'] = {'Description':
+                        'Refresh gensystray config after file changes'}
     unitfile['Service'] = {'Type': 'oneshot',
                            'ExecStart': execstart_string}
     unitfile['Install'] = {'WantedBy': 'multi.user.target'}
@@ -176,8 +180,10 @@ def write_systemd(arguments):
     # write the files in ini format
     with open(output_pathfile, 'w') as f:
         pathfile.write(f)
+    print('wrote %s' % output_pathfile)
     with open(output_unitfile, 'w') as f:
         unitfile.write(f)
+    print('wrote %s' % output_unitfile)
 
     # reload and enable main .service
     os.system('systemctl --user daemon-reload')
@@ -187,9 +193,15 @@ def write_systemd(arguments):
               config_name)
 
 
-arguments = get_arguments()
-filedict = get_files(arguments)
+if __name__ == "__main__":
+    settings = get_settings()
+    filedict = get_files(settings)
 
-write_config(filedict, arguments)
-if not arguments['no_systemd_update']:
-    write_systemd(arguments)
+    write_gensystray(settings, filedict)
+    if not settings['no_systemd_update']:
+        exec_path = which('gensystray-gen')
+        if exec_path:
+            write_systemd(settings, exec_path)
+        else:
+            print("gensystray-gen exectutable not found in path.")
+            raise SystemExit("Error: Can not create systemd files, Exiting")
