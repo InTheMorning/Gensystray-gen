@@ -12,6 +12,8 @@ Unless it is run with the '-n' argument, it also autogenerates the following fil
 
 ## Usage
 
+Make sure gensystray-gen is in your PATH
+
 The systray icon can be started/stopped using
 ```
 % systemctl --user start/stop gensystray@<name>
@@ -23,17 +25,16 @@ To enable this tray icon at startup, add the above `systemctl start` command to 
 
 Make a new gensystray icon called 'notes' that shows a listing of `.md` files in the `~/Notes/` folder:
 ```
-% gensystray-gen.py Notes -d ~/Notes -e .md
+% gensystray-gen Notes -d ~/Notes -e .md
 ```
 
 
 Using the **-c** argument to run scripts using a specific command:
 ```
-% gensystray-gen.py Scripts -d ~/Scripts/ -c 'xfce4-terminal -H -e'
+% gensystray-gen Scripts -d ~/Scripts/ -c 'xfce4-terminal -H -e'
 ```
 
 
 ## ToDo
 
 + Add an option for custom editor command for *New File* entry
-+ Find the correct path to the gensystray-gen executable
